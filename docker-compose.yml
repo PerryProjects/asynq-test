@@ -1,0 +1,87 @@
+services:
+    # ── Redis ────────────────────────────────────────────────────
+    redis:
+        image: redis:latest
+        ports:
+            - "6379:6379"
+        healthcheck:
+            test: [ "CMD", "redis-cli", "ping" ]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+        networks:
+            - asynq-net
+
+    # ── Worker Pods (4 identical containers) ─────────────────────
+    worker-1:
+        build: .
+        command: [ "worker" ]
+        environment:
+            - POD_ID=worker-1
+            - ASYNQ_REDIS_ADDR=redis:6379
+        depends_on:
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        networks:
+            - asynq-net
+
+    worker-2:
+        build: .
+        command: [ "worker" ]
+        environment:
+            - POD_ID=worker-2
+            - ASYNQ_REDIS_ADDR=redis:6379
+        depends_on:
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        networks:
+            - asynq-net
+
+    worker-3:
+        build: .
+        command: [ "worker" ]
+        environment:
+            - POD_ID=worker-3
+            - ASYNQ_REDIS_ADDR=redis:6379
+        depends_on:
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        networks:
+            - asynq-net
+
+    worker-4:
+        build: .
+        command: [ "worker" ]
+        environment:
+            - POD_ID=worker-4
+            - ASYNQ_REDIS_ADDR=redis:6379
+        depends_on:
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        networks:
+            - asynq-net
+
+    # ── Web UI + Embedded Asynqmon ───────────────────────────────
+    web:
+        build: .
+        command: [ "web" ]
+        ports:
+            - "8888:8888"
+        environment:
+            - POD_ID=web
+            - ASYNQ_REDIS_ADDR=redis:6379
+            - ASYNQ_WEB_PORT=8888
+        depends_on:
+            redis:
+                condition: service_healthy
+        restart: unless-stopped
+        networks:
+            - asynq-net
+
+networks:
+    asynq-net:
+        driver: bridge

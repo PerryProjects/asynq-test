@@ -1,0 +1,42 @@
+# Asynq Multi-Pod Prototype — Default Configuration
+# Environment variables override: ASYNQ_REDIS_ADDR, ASYNQ_WORKER_CONCURRENCY, etc.
+
+redis:
+    addr: "redis:6379"
+    password: ""
+    db: 0
+
+worker:
+    concurrency: 10
+    queues:
+        critical: 6
+        default: 3
+        low: 1
+    strict_priority: false
+    shutdown_timeout: 10s
+
+scheduler:
+    timezone: "UTC"
+    leader_lock_key: "asynq-leader-lock"
+    leader_lock_ttl: 15s
+    leader_refresh_interval: 5s
+    leader_retry_interval: 2s
+    tasks:
+        -   cronspec: "@every 2m"
+            type: "report:generate"
+            queue: "low"
+            unique_ttl: 125s
+        -   cronspec: "@every 1m"
+            type: "email:deliver"
+            queue: "default"
+            unique_ttl: 65s
+        -   cronspec: "*/5 * * * *"
+            type: "webhook:send"
+            queue: "critical"
+            unique_ttl: 310s
+
+web:
+    port: 8888
+
+pod:
+    id: ""  # overridden by env POD_ID or os.Hostname()
