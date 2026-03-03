@@ -10,11 +10,12 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Redis     RedisConfig     `mapstructure:"redis"`
-	Worker    WorkerConfig    `mapstructure:"worker"`
-	Scheduler SchedulerConfig `mapstructure:"scheduler"`
-	Web       WebConfig       `mapstructure:"web"`
-	Pod       PodConfig       `mapstructure:"pod"`
+	Redis         RedisConfig         `mapstructure:"redis"`
+	Worker        WorkerConfig        `mapstructure:"worker"`
+	Scheduler     SchedulerConfig     `mapstructure:"scheduler"`
+	Web           WebConfig           `mapstructure:"web"`
+	Pod           PodConfig           `mapstructure:"pod"`
+	Serialization SerializationConfig `mapstructure:"serialization"`
 }
 
 // RedisConfig holds Redis connection settings.
@@ -60,6 +61,11 @@ type PodConfig struct {
 	ID string `mapstructure:"id"`
 }
 
+// SerializationConfig holds payload serialization format settings.
+type SerializationConfig struct {
+	Format string `mapstructure:"format"`
+}
+
 // C is the global configuration instance.
 var C Config
 
@@ -83,10 +89,11 @@ func Load() error {
 	viper.SetDefault("worker.shutdown_timeout", "10s")
 	viper.SetDefault("web.port", 8888)
 	viper.SetDefault("scheduler.timezone", "UTC")
-	viper.SetDefault("scheduler.leader_lock_key", "asynq-leader-lock")
+	viper.SetDefault("scheduler.leader_lock_key", "asynq-scheduler-leader")
 	viper.SetDefault("scheduler.leader_lock_ttl", "15s")
 	viper.SetDefault("scheduler.leader_refresh_interval", "5s")
 	viper.SetDefault("scheduler.leader_retry_interval", "2s")
+	viper.SetDefault("serialization.format", "json")
 
 	if err := viper.ReadInConfig(); err != nil {
 		// Config file not found is not fatal — we can run on env vars alone.

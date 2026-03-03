@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package asynqtest.tasks.v1;
+
+option go_package = "github.com/asynq-test/internal/tasks/pb;taskspb";
+
+message EmailPayload {
+  string to = 1;
+  string subject = 2;
+  string body = 3;
+}
+
+message ImagePayload {
+  string url = 1;
+  int32 width = 2;
+  int32 height = 3;
+}
+
+message ReportPayload {
+  string report_type = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message WebhookPayload {
+  string url = 1;
+  string method = 2;
+  int32 simulate_code = 3;
+}
+
+message NotificationPayload {
+  int32 user_id = 1;
+  string message = 2;
+  string channel = 3;
+}
+
+message NotificationBatchPayload {
+  repeated int32 user_ids = 1;
+  repeated string messages = 2;
+  int32 count = 3;
+  string group = 4;
+}

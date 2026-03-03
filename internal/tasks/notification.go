@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -13,7 +12,7 @@ import (
 // NewNotificationSendTask creates a notification:send task.
 // Demonstrates: Group aggregation — tasks with the same group key are batched.
 func NewNotificationSendTask(userID int, message, channel string) (*asynq.Task, error) {
-	payload, err := json.Marshal(NotificationPayload{
+	payload, err := marshalPayload(NotificationPayload{
 		UserID:  userID,
 		Message: message,
 		Channel: channel,
@@ -40,7 +39,7 @@ func AggregateNotifications(group string, tasks []*asynq.Task) *asynq.Task {
 
 	for _, t := range tasks {
 		var p NotificationPayload
-		if err := json.Unmarshal(t.Payload(), &p); err != nil {
+		if err := unmarshalPayload(t.Payload(), &p); err != nil {
 			log.Printf("[aggregator] Failed to unmarshal task payload: %v", err)
 			continue
 		}
@@ -54,7 +53,11 @@ func AggregateNotifications(group string, tasks []*asynq.Task) *asynq.Task {
 		Count:    len(tasks),
 		Group:    group,
 	}
-	payload, _ := json.Marshal(batch)
+	payload, err := marshalPayload(batch)
+	if err != nil {
+		log.Printf("[aggregator] Failed to marshal batch payload: %v", err)
+		return asynq.NewTask(TypeNotificationBatch, nil)
+	}
 
 	return asynq.NewTask(TypeNotificationBatch, payload)
 }
@@ -63,7 +66,7 @@ func AggregateNotifications(group string, tasks []*asynq.Task) *asynq.Task {
 // (only reached if aggregation is not triggered, e.g., single notification).
 func HandleNotificationSend(ctx context.Context, t *asynq.Task) error {
 	var p NotificationPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+	if err := unmarshalPayload(t.Payload(), &p); err != nil {
 		return fmt.Errorf("failed to unmarshal notification payload: %v: %w", err, asynq.SkipRetry)
 	}
 
@@ -80,7 +83,7 @@ func HandleNotificationSend(ctx context.Context, t *asynq.Task) error {
 // HandleNotificationBatch processes aggregated notification:batch tasks.
 func HandleNotificationBatch(ctx context.Context, t *asynq.Task) error {
 	var p NotificationBatchPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+	if err := unmarshalPayload(t.Payload(), &p); err != nil {
 		return fmt.Errorf("failed to unmarshal batch payload: %v: %w", err, asynq.SkipRetry)
 	}
 

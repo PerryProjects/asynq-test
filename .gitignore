@@ -63,3 +63,4 @@ go.work.sum
 # env file
 .env
 
+.github/prompts

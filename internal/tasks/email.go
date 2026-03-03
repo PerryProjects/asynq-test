@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -12,7 +11,7 @@ import (
 
 // NewEmailDeliverTask creates a new email:deliver task.
 func NewEmailDeliverTask(to, subject, body string) (*asynq.Task, error) {
-	payload, err := json.Marshal(EmailPayload{
+	payload, err := marshalPayload(EmailPayload{
 		To:      to,
 		Subject: subject,
 		Body:    body,
@@ -31,7 +30,7 @@ func NewEmailDeliverTask(to, subject, body string) (*asynq.Task, error) {
 // HandleEmailDeliver processes email:deliver tasks.
 func HandleEmailDeliver(ctx context.Context, t *asynq.Task) error {
 	var p EmailPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+	if err := unmarshalPayload(t.Payload(), &p); err != nil {
 		return fmt.Errorf("failed to unmarshal email payload: %v: %w", err, asynq.SkipRetry)
 	}
 

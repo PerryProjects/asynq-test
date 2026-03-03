@@ -3,12 +3,10 @@ package scheduler
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"time"
 
-	"github.com/go-redsync/redsync/v4"
-	redsyncredis "github.com/go-redsync/redsync/v4/redis/goredis/v9"
+	"github.com/bsm/redislock"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 
@@ -81,11 +79,17 @@ func RunWithLeaderElection(ctx context.Context, cfg config.Config) error {
 		DB:       cfg.Redis.DB,
 	})
 	defer redisClient.Close()
+	locker := redislock.New(redisClient)
+	inspector := asynq.NewInspector(asynq.RedisClientOpt{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	defer inspector.Close()
 
-	rs := redsync.New(redsyncredis.NewPool(redisClient))
 	lockKey := cfg.Scheduler.LeaderLockKey
 	if lockKey == "" {
-		lockKey = "asynq-leader-lock"
+		lockKey = "asynq-scheduler-leader"
 	}
 	lockTTL := cfg.Scheduler.LeaderLockTTL
 	if lockTTL <= 0 {
@@ -110,17 +114,16 @@ func RunWithLeaderElection(ctx context.Context, cfg config.Config) error {
 		default:
 		}
 
-		mutex := rs.NewMutex(
-			lockKey,
-			redsync.WithExpiry(lockTTL),
-			redsync.WithTries(1),
-		)
-
-		if err := mutex.LockContext(ctx); err != nil {
+		lock, err := locker.Obtain(ctx, lockKey, lockTTL, nil)
+		if err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return nil
 			}
-			log.Printf("[%s] Scheduler standby (leader lock not acquired): %v", cfg.Pod.ID, err)
+			if errors.Is(err, redislock.ErrNotObtained) {
+				log.Printf("[%s] Scheduler standby (leader lock held by another pod)", cfg.Pod.ID)
+			} else {
+				log.Printf("[%s] Scheduler standby (leader lock not acquired): %v", cfg.Pod.ID, err)
+			}
 			select {
 			case <-ctx.Done():
 				return nil
@@ -131,26 +134,26 @@ func RunWithLeaderElection(ctx context.Context, cfg config.Config) error {
 
 		log.Printf("[%s] Scheduler leader lock acquired (key=%q ttl=%s)", cfg.Pod.ID, lockKey, lockTTL)
 
-		if err := cleanupStaleSchedulerEntries(ctx, redisClient); err != nil {
+		if err := cleanupSchedulerState(ctx, redisClient, inspector, cfg.Pod.ID); err != nil {
 			log.Printf("[%s] Scheduler cleanup warning: %v", cfg.Pod.ID, err)
 		}
 
 		sched, err := NewScheduler(cfg)
 		if err != nil {
-			_, _ = mutex.UnlockContext(context.Background())
-			return fmt.Errorf("create scheduler: %w", err)
+			_ = lock.Release(context.Background())
+			return err
 		}
 
 		if err := RegisterTasks(sched, cfg); err != nil {
 			sched.Shutdown()
-			_, _ = mutex.UnlockContext(context.Background())
-			return fmt.Errorf("register scheduler tasks: %w", err)
+			_ = lock.Release(context.Background())
+			return err
 		}
 
 		if err := sched.Start(); err != nil {
 			sched.Shutdown()
-			_, _ = mutex.UnlockContext(context.Background())
-			return fmt.Errorf("start scheduler: %w", err)
+			_ = lock.Release(context.Background())
+			return err
 		}
 
 		leaderCtx, cancelLeader := context.WithCancel(ctx)
@@ -163,13 +166,8 @@ func RunWithLeaderElection(ctx context.Context, cfg config.Config) error {
 				case <-leaderCtx.Done():
 					return
 				case <-ticker.C:
-					ok, err := mutex.ExtendContext(leaderCtx)
-					if err != nil {
-						refreshErrCh <- fmt.Errorf("lock refresh failed: %w", err)
-						return
-					}
-					if !ok {
-						refreshErrCh <- fmt.Errorf("lock refresh failed: lock no longer valid")
+					if err := lock.Refresh(leaderCtx, lockTTL, nil); err != nil {
+						refreshErrCh <- err
 						return
 					}
 				}
@@ -186,12 +184,12 @@ func RunWithLeaderElection(ctx context.Context, cfg config.Config) error {
 		sched.Shutdown()
 
 		releaseCtx, releaseCancel := context.WithTimeout(context.Background(), 2*time.Second)
-		ok, err := mutex.UnlockContext(releaseCtx)
+		err = lock.Release(releaseCtx)
 		releaseCancel()
 		if err != nil {
-			log.Printf("[%s] Scheduler leader lock release error: %v", cfg.Pod.ID, err)
-		} else if !ok {
-			log.Printf("[%s] Scheduler leader lock already expired before release", cfg.Pod.ID)
+			if !errors.Is(err, redislock.ErrLockNotHeld) {
+				log.Printf("[%s] Scheduler leader lock release error: %v", cfg.Pod.ID, err)
+			}
 		}
 
 		if ctx.Err() != nil {
@@ -206,23 +204,28 @@ func RunWithLeaderElection(ctx context.Context, cfg config.Config) error {
 	}
 }
 
-// cleanupStaleSchedulerEntries removes stale scheduler metadata from Redis so
-// `asynq cron ls` stays clean after ungraceful pod exits.
-func cleanupStaleSchedulerEntries(ctx context.Context, redisClient *redis.Client) error {
-	now := time.Now().Unix()
-	staleKeys, err := redisClient.ZRangeByScore(ctx, "asynq:schedulers", &redis.ZRangeBy{
-		Min: "-inf",
-		Max: fmt.Sprintf("(%d", now),
-	}).Result()
+// cleanupSchedulerState clears existing scheduler metadata before registering.
+// Asynq v0.26.0 does not expose Scheduler.History on Scheduler, so we use
+// Inspector.SchedulerEntries + direct cleanup of scheduler metadata keys.
+func cleanupSchedulerState(ctx context.Context, redisClient *redis.Client, inspector *asynq.Inspector, podID string) error {
+	entries, err := inspector.SchedulerEntries()
 	if err != nil {
 		return err
 	}
-	if len(staleKeys) == 0 {
+	if len(entries) > 0 {
+		log.Printf("[%s] Scheduler cleanup: found %d existing cron entries", podID, len(entries))
+	}
+
+	keys, err := redisClient.ZRange(ctx, "asynq:schedulers", 0, -1).Result()
+	if err != nil {
+		return err
+	}
+	if len(keys) == 0 {
 		return nil
 	}
 
 	pipe := redisClient.TxPipeline()
-	for _, key := range staleKeys {
+	for _, key := range keys {
 		pipe.Del(ctx, key)
 		pipe.ZRem(ctx, "asynq:schedulers", key)
 	}

@@ -15,7 +15,7 @@ type ImageProcessor struct{}
 
 // NewImageResizeTask creates a new image:resize task.
 func NewImageResizeTask(url string, width, height int) (*asynq.Task, error) {
-	payload, err := json.Marshal(ImagePayload{
+	payload, err := marshalPayload(ImagePayload{
 		URL:    url,
 		Width:  width,
 		Height: height,
@@ -35,7 +35,7 @@ func NewImageResizeTask(url string, width, height int) (*asynq.Task, error) {
 // ProcessTask handles image:resize tasks — demonstrates struct handler + ResultWriter.
 func (p *ImageProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	var payload ImagePayload
-	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
+	if err := unmarshalPayload(t.Payload(), &payload); err != nil {
 		return fmt.Errorf("failed to unmarshal image payload: %v: %w", err, asynq.SkipRetry)
 	}
 

@@ -4,11 +4,14 @@ services:
         image: redis:latest
         ports:
             - "6379:6379"
+        command: [ "redis-server", "--appendonly", "yes" ]
         healthcheck:
             test: [ "CMD", "redis-cli", "ping" ]
             interval: 5s
             timeout: 3s
             retries: 5
+        volumes:
+            - redis_data:/data
         networks:
             - asynq-net
 
@@ -85,3 +88,6 @@ services:
 networks:
     asynq-net:
         driver: bridge
+
+volumes:
+    redis_data:

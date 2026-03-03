@@ -32,6 +32,33 @@ Then open:
 - **Asynqmon**: http://localhost:8888/monitoring
 - **Redis**: localhost:6379
 
+## Payload Format (JSON or Proto)
+
+Task payloads stored in Redis can be encoded as JSON (default) or binary Protobuf.
+
+Protobuf payloads are schema-based and defined in [proto/tasks.proto](proto/tasks.proto). Generated Go types are checked in at [internal/tasks/pb/tasks.pb.go](internal/tasks/pb/tasks.pb.go).
+
+- Config file: `serialization.format: "json" | "proto"`
+- Env var: `ASYNQ_SERIALIZATION_FORMAT=json|proto`
+- CLI flag (all commands): `--payload-format json|proto`
+
+Examples:
+
+```bash
+# Run workers using protobuf payload encoding
+./asynqtest --payload-format proto worker
+
+# Start web with explicit JSON payload encoding
+./asynqtest --payload-format json web
+```
+
+Regenerate protobuf code after schema changes:
+
+```bash
+protoc --go_out=. --go_opt=paths=source_relative proto/tasks.proto
+mv proto/tasks.pb.go internal/tasks/pb/tasks.pb.go
+```
+
 ## Task Types
 
 | Task                | Queue    | Features                                         |
@@ -96,6 +123,7 @@ Configuration is loaded from `config.yaml` and can be overridden with environmen
 ASYNQ_REDIS_ADDR=redis:6379
 ASYNQ_WORKER_CONCURRENCY=20
 ASYNQ_WEB_PORT=9090
+ASYNQ_SERIALIZATION_FORMAT=proto
 POD_ID=my-worker
 ```
 

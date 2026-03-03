@@ -15,19 +15,20 @@ import (
 	"github.com/asynq-test/internal/worker"
 )
 
-var workerCmd = &cobra.Command{
-	Use:   "worker",
-	Short: "Start worker server with embedded scheduler",
-	Long:  "Runs the asynq worker server (task consumer) and the embedded periodic task scheduler in the same process.",
-	RunE:  runWorker,
-}
+func NewWorkerCmd() *cobra.Command {
+	workerCmd := &cobra.Command{
+		Use:   "worker",
+		Short: "Start worker server with embedded scheduler",
+		Long:  "Runs the asynq worker server (task consumer) and the embedded periodic task scheduler in the same process.",
+		RunE:  runWorker,
+	}
 
-func init() {
-	rootCmd.AddCommand(workerCmd)
 	workerCmd.Flags().IntP("concurrency", "c", 0, "Worker concurrency (overrides config)")
 	workerCmd.Flags().String("pod-id", "", "Pod identifier (overrides config/hostname)")
 	_ = viper.BindPFlag("worker.concurrency", workerCmd.Flags().Lookup("concurrency"))
 	_ = viper.BindPFlag("pod.id", workerCmd.Flags().Lookup("pod-id"))
+
+	return workerCmd
 }
 
 func runWorker(cmd *cobra.Command, args []string) error {

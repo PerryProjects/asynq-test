@@ -17,7 +17,7 @@ worker:
 
 scheduler:
     timezone: "UTC"
-    leader_lock_key: "asynq-leader-lock"
+    leader_lock_key: "asynq-scheduler-leader"
     leader_lock_ttl: 15s
     leader_refresh_interval: 5s
     leader_retry_interval: 2s
@@ -37,6 +37,9 @@ scheduler:
 
 web:
     port: 8888
+
+serialization:
+    format: "proto" # json | proto
 
 pod:
     id: ""  # overridden by env POD_ID or os.Hostname()

@@ -13,13 +13,6 @@ import (
 	"github.com/asynq-test/internal/tasks"
 )
 
-var enqueueCmd = &cobra.Command{
-	Use:   "enqueue",
-	Short: "Enqueue a task from the CLI",
-	Long:  "One-shot CLI command to enqueue a task into Redis for processing by worker pods.",
-	RunE:  runEnqueue,
-}
-
 // CLI flags
 var (
 	enqTaskType  string
@@ -30,8 +23,14 @@ var (
 	enqUniqueTTL int
 )
 
-func init() {
-	rootCmd.AddCommand(enqueueCmd)
+func NewEnqueueCmd() *cobra.Command {
+	enqueueCmd := &cobra.Command{
+		Use:   "enqueue",
+		Short: "Enqueue a task from the CLI",
+		Long:  "One-shot CLI command to enqueue a task into Redis for processing by worker pods.",
+		RunE:  runEnqueue,
+	}
+
 	enqueueCmd.Flags().StringVarP(&enqTaskType, "type", "t", "", "Task type (required)")
 	enqueueCmd.Flags().StringVarP(&enqPayload, "payload", "P", "{}", "JSON payload")
 	enqueueCmd.Flags().StringVarP(&enqQueue, "queue", "q", "", "Queue name")
@@ -39,6 +38,8 @@ func init() {
 	enqueueCmd.Flags().IntVarP(&enqMaxRetry, "max-retry", "r", 0, "Max retry count")
 	enqueueCmd.Flags().IntVarP(&enqUniqueTTL, "unique", "u", 0, "Unique TTL in seconds")
 	_ = enqueueCmd.MarkFlagRequired("type")
+
+	return enqueueCmd
 }
 
 func runEnqueue(cmd *cobra.Command, args []string) error {

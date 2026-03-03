@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -13,7 +12,7 @@ import (
 // NewReportGenerateTask creates a new report:generate task.
 // Demonstrates: Deadline, ProcessIn (delayed), and periodic scheduling via cron.
 func NewReportGenerateTask(reportType, startDate, endDate string) (*asynq.Task, error) {
-	payload, err := json.Marshal(ReportPayload{
+	payload, err := marshalPayload(ReportPayload{
 		ReportType: reportType,
 		StartDate:  startDate,
 		EndDate:    endDate,
@@ -34,7 +33,7 @@ func NewReportGenerateTask(reportType, startDate, endDate string) (*asynq.Task, 
 // Simulates a long-running job with periodic context checks.
 func HandleReportGenerate(ctx context.Context, t *asynq.Task) error {
 	var p ReportPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+	if err := unmarshalPayload(t.Payload(), &p); err != nil {
 		return fmt.Errorf("failed to unmarshal report payload: %v: %w", err, asynq.SkipRetry)
 	}
 

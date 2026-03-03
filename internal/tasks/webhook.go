@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -13,7 +12,7 @@ import (
 // NewWebhookSendTask creates a new webhook:send task.
 // Demonstrates: Unique, custom TaskID, SkipRetry on 4xx.
 func NewWebhookSendTask(url, method string, simulateCode int) (*asynq.Task, error) {
-	payload, err := json.Marshal(WebhookPayload{
+	payload, err := marshalPayload(WebhookPayload{
 		URL:          url,
 		Method:       method,
 		SimulateCode: simulateCode,
@@ -35,7 +34,7 @@ func NewWebhookSendTask(url, method string, simulateCode int) (*asynq.Task, erro
 // Demonstrates SkipRetry on 4xx errors, normal retry on 5xx.
 func HandleWebhookSend(ctx context.Context, t *asynq.Task) error {
 	var p WebhookPayload
-	if err := json.Unmarshal(t.Payload(), &p); err != nil {
+	if err := unmarshalPayload(t.Payload(), &p); err != nil {
 		return fmt.Errorf("failed to unmarshal webhook payload: %v: %w", err, asynq.SkipRetry)
 	}
 

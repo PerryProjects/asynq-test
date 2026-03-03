@@ -11,17 +11,18 @@ import (
 	"github.com/asynq-test/internal/web"
 )
 
-var webCmd = &cobra.Command{
-	Use:   "web",
-	Short: "Start web UI server",
-	Long:  "Runs the Gin HTTP server with htmx dashboard, REST API, and embedded Asynqmon at /monitoring.",
-	RunE:  runWeb,
-}
+func NewWebCmd() *cobra.Command {
+	webCmd := &cobra.Command{
+		Use:   "web",
+		Short: "Start web UI server",
+		Long:  "Runs the Gin HTTP server with htmx dashboard, REST API, and embedded Asynqmon at /monitoring.",
+		RunE:  runWeb,
+	}
 
-func init() {
-	rootCmd.AddCommand(webCmd)
 	webCmd.Flags().IntP("port", "p", 0, "Web server port (overrides config)")
 	_ = viper.BindPFlag("web.port", webCmd.Flags().Lookup("port"))
+
+	return webCmd
 }
 
 func runWeb(cmd *cobra.Command, args []string) error {
