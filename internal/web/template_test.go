@@ -7,7 +7,6 @@ import (
 
 func TestIndexHTMLContainsCoreSections(t *testing.T) {
 	t.Parallel()
-	t.Cleanup(func() {})
 
 	tests := []struct {
 		name string
@@ -20,7 +19,6 @@ func TestIndexHTMLContainsCoreSections(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			if !strings.Contains(indexHTML, tc.want) {
