@@ -1,17 +1,19 @@
 services:
-    # ── Redis ────────────────────────────────────────────────────
-    redis:
-        image: redis:latest
+    # ── Valkey ────────────────────────────────────────────────────
+    valkey:
+        image: valkey/valkey:latest
         ports:
             - "6379:6379"
-        command: [ "redis-server", "--appendonly", "yes" ]
+        # Valkey nutzt dieselben Parameter wie Redis
+        command: [ "valkey-server", "--appendonly", "yes" ]
         healthcheck:
-            test: [ "CMD", "redis-cli", "ping" ]
+            # Hier nutzen wir valkey-cli statt redis-cli
+            test: [ "CMD", "valkey-cli", "ping" ]
             interval: 5s
             timeout: 3s
             retries: 5
         volumes:
-            - redis_data:/data
+            - valkey_data:/data
         networks:
             - asynq-net
 
@@ -21,9 +23,9 @@ services:
         command: [ "worker" ]
         environment:
             - POD_ID=worker-1
-            - ASYNQ_REDIS_ADDR=redis:6379
+            - ASYNQ_REDIS_ADDR=valkey:6379
         depends_on:
-            redis:
+            valkey:
                 condition: service_healthy
         restart: unless-stopped
         networks:
@@ -34,9 +36,9 @@ services:
         command: [ "worker" ]
         environment:
             - POD_ID=worker-2
-            - ASYNQ_REDIS_ADDR=redis:6379
+            - ASYNQ_REDIS_ADDR=valkey:6379
         depends_on:
-            redis:
+            valkey:
                 condition: service_healthy
         restart: unless-stopped
         networks:
@@ -47,9 +49,9 @@ services:
         command: [ "worker" ]
         environment:
             - POD_ID=worker-3
-            - ASYNQ_REDIS_ADDR=redis:6379
+            - ASYNQ_REDIS_ADDR=valkey:6379
         depends_on:
-            redis:
+            valkey:
                 condition: service_healthy
         restart: unless-stopped
         networks:
@@ -60,9 +62,9 @@ services:
         command: [ "worker" ]
         environment:
             - POD_ID=worker-4
-            - ASYNQ_REDIS_ADDR=redis:6379
+            - ASYNQ_REDIS_ADDR=valkey:6379
         depends_on:
-            redis:
+            valkey:
                 condition: service_healthy
         restart: unless-stopped
         networks:
@@ -76,10 +78,10 @@ services:
             - "8888:8888"
         environment:
             - POD_ID=web
-            - ASYNQ_REDIS_ADDR=redis:6379
+            - ASYNQ_REDIS_ADDR=valkey:6379
             - ASYNQ_WEB_PORT=8888
         depends_on:
-            redis:
+            valkey:
                 condition: service_healthy
         restart: unless-stopped
         networks:
@@ -90,4 +92,4 @@ networks:
         driver: bridge
 
 volumes:
-    redis_data:
+    valkey_data:
