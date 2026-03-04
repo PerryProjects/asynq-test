@@ -21,6 +21,13 @@ scheduler:
     leader_lock_ttl: 15s
     leader_refresh_interval: 5s
     leader_retry_interval: 2s
+    k8s_leader_election:
+        enabled: true
+        namespace: ""
+        lease_name: "asynq-scheduler-leader"
+        lease_duration: 15s
+        renew_deadline: 10s
+        retry_period: 2s
     tasks:
         -   cronspec: "@every 2m"
             type: "report:generate"
