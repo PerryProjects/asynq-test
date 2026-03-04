@@ -41,6 +41,17 @@ type SchedulerConfig struct {
 	LeaderLockTTL         time.Duration      `mapstructure:"leader_lock_ttl"`
 	LeaderRefreshInterval time.Duration      `mapstructure:"leader_refresh_interval"`
 	LeaderRetryInterval   time.Duration      `mapstructure:"leader_retry_interval"`
+	K8sLeaderElection     K8sLeaderConfig    `mapstructure:"k8s_leader_election"`
+}
+
+// K8sLeaderConfig holds Kubernetes lease-based leader election settings.
+type K8sLeaderConfig struct {
+	Enabled       bool          `mapstructure:"enabled"`
+	Namespace     string        `mapstructure:"namespace"`
+	LeaseName     string        `mapstructure:"lease_name"`
+	LeaseDuration time.Duration `mapstructure:"lease_duration"`
+	RenewDeadline time.Duration `mapstructure:"renew_deadline"`
+	RetryPeriod   time.Duration `mapstructure:"retry_period"`
 }
 
 // ScheduledTaskDef defines a single periodic task.
@@ -93,6 +104,12 @@ func Load() error {
 	viper.SetDefault("scheduler.leader_lock_ttl", "15s")
 	viper.SetDefault("scheduler.leader_refresh_interval", "5s")
 	viper.SetDefault("scheduler.leader_retry_interval", "2s")
+	viper.SetDefault("scheduler.k8s_leader_election.enabled", true)
+	viper.SetDefault("scheduler.k8s_leader_election.namespace", "")
+	viper.SetDefault("scheduler.k8s_leader_election.lease_name", "asynq-scheduler-leader")
+	viper.SetDefault("scheduler.k8s_leader_election.lease_duration", "15s")
+	viper.SetDefault("scheduler.k8s_leader_election.renew_deadline", "10s")
+	viper.SetDefault("scheduler.k8s_leader_election.retry_period", "2s")
 	viper.SetDefault("serialization.format", "json")
 
 	if err := viper.ReadInConfig(); err != nil {

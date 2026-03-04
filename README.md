@@ -127,6 +127,19 @@ ASYNQ_SERIALIZATION_FORMAT=proto
 POD_ID=my-worker
 ```
 
+### Scheduler leader election
+
+The scheduler now prefers **Kubernetes Lease** leader election and automatically falls back to **Redis lock** leader election when Kubernetes election is unavailable (for example, outside a cluster).
+
+`scheduler.k8s_leader_election` options:
+
+- `enabled` (default: `true`)
+- `namespace` (optional; falls back to `POD_NAMESPACE` or service account namespace file)
+- `lease_name` (default: `asynq-scheduler-leader`)
+- `lease_duration` (default: `15s`)
+- `renew_deadline` (default: `10s`)
+- `retry_period` (default: `2s`)
+
 ## Tech Stack
 
 - Go 1.26.0
